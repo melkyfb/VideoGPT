@@ -1,47 +1,97 @@
-import argparse
+import click
+import openai
 import os
-from video_utils import retrieve_video_url, download_video
-from transcription import transcribe_video
-from chatgpt import interact_with_chatgpt
-from summary import generate_summary
-import error_handling
+import moviepy.editor as mp
+from datetime import datetime
 
-def main():
-    parser = argparse.ArgumentParser(description="Video Processing Script")
-    parser.add_argument("video_url", type=str, help="URL of the video")
-    parser.add_argument("--api_key", type=str, help="OpenAI API key")
-    args = parser.parse_args()
-
-    api_key = args.api_key or os.environ.get("OPENAI_API_KEY")
-
+@click.command()
+@click.option("--api-key", default="", help="OpenAI API key")
+@click.option("--language", default="", help="Language for transcription")
+@click.argument("audio_or_video_path", type=click.Path(exists=True))
+@click.argument("transcription_path", type=click.Path(), required=False)
+@click.argument("summary_path", type=click.Path(), required=False)
+def summarize_transcription(api_key, language, audio_or_video_path, transcription_path, summary_path):
     try:
-        # Retrieve the video URL
-        video_url = retrieve_video_url(args.video_url)
+        openai.api_key = api_key
 
-        # Download the video
-        video_path = download_video(video_url)
+        if audio_or_video_path.lower().endswith((".mp4", ".avi", ".mov")):
+            # Extract audio from video
+            video = mp.VideoFileClip(audio_or_video_path)
+            audio_path = "extracted_audio.wav"
+            video.audio.write_audiofile(audio_path, fps=video.fps)
+        else:
+            audio_path = audio_or_video_path
 
-        # Transcribe the video
-        transcription = transcribe_video(video_path)
+        with open(audio_path, "rb") as f:
+            audio_data = f.read()
 
-        # Interact with ChatGPT
-        generated_text = interact_with_chatgpt(transcription, api_key)
+        transcription_params = {
+            "audio": audio_data,
+            "model": "whisper",
+            "max_tokens": 100
+        }
 
-        # Generate summary with timestamps
-        summary = generate_summary(transcription)
+        if language:
+            transcription_params["language"] = language
 
-        # Display generated text and save it
-        print(generated_text)
-        with open("generated_text.txt", "w") as file:
-            file.write(generated_text)
+        response = openai.Transcription.create(**transcription_params)
+        transcription = response.transcription
 
-        # Save summary with timestamps
-        with open("summary.txt", "w") as file:
-            file.write(summary)
+        if transcription:
+            print("Transcription completed successfully:")
+            print(transcription)
 
-    except error_handling.VideoProcessingError as e:
-        print(f"An error occurred during video processing: {e}")
-        # Handle the error gracefully
+            # Save the transcription to the specified file or in the same folder as the audio/video file
+            if not transcription_path:
+                audio_or_video_dir = os.path.dirname(audio_or_video_path)
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                transcription_path = os.path.join(audio_or_video_dir, f"transcription_{timestamp}.txt")
+            with open(transcription_path, "w") as f:
+                f.write(transcription)
+            print("Transcription saved to:", transcription_path)
+
+            # Summarize the transcription using the OpenAI API
+            summary_response = openai.Completion.create(
+                engine="davinci",
+                prompt=transcription,
+                max_tokens=100
+            )
+            summary = summary_response.choices[0].text.strip()
+
+            if summary:
+                # Save the summary to the specified file or in the same folder as the audio/video file
+                if not summary_path:
+                    audio_or_video_dir = os.path.dirname(audio_or_video_path)
+                    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                    summary_path = os.path.join(audio_or_video_dir, f"summary_{timestamp}.txt")
+                with open(summary_path, "w") as f:
+                    f.write(summary)
+                print("Summary saved to:", summary_path)
+            else:
+                print("Failed to generate a summary.")
+
+            # Ask questions related to the transcription
+            print("Ask ChatGPT (Enter 'I want to quit' to exit):")
+            while True:
+                question = input("Ask ChatGPT: ")
+                if question.lower() == "i want to quit":
+                    break
+                answer_response = openai.Answer.create(
+                    model="davinci",
+                    question=question,
+                    documents=[transcription]
+                )
+                answer = answer_response.answers[0]
+                print("Answer:", answer)
+        else:
+            print("Failed to transcribe audio.")
+
+        if audio_or_video_path != audio_path:
+            os.remove(audio_path)
+
+    except Exception as e:
+        print("An error occurred during audio transcription:")
+        print(str(e))
 
 if __name__ == "__main__":
-    main()
+    summarize_transcription()
