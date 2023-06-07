@@ -44,11 +44,8 @@ def summarize_transcription(api_key, language, audio_or_video_path, transcriptio
                 temperature=1,
                 messages = [
                     {
-                        "role": "system",
-                        "content": "You are a professional summarizer and you will summarize transcriptions provided by the user."
-                    }, {
                         "role": "user",
-                        "content": "Please summarize the following transcription including bullet points for each topic: {}".format(transcription)
+                        "content": "Please summarize (with bullet points) the following transcription: {}".format(transcription)
                     }
                 ]
             )
