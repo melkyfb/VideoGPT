@@ -1,0 +1,4 @@
+google-cloud-speech==2.7.0
+youtube-dl==2021.6.6
+openai==0.27.0
+requests==2.26.0
