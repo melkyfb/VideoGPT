@@ -1,4 +1,4 @@
-# Video Processing Script Documentation
+# VideoGPT Documentation
 
 This documentation provides information on how to use the Video Processing Script. The script is designed to retrieve a video URL, download the video, transcribe it, interact with ChatGPT for generating text, and generate a summary with timestamps. Here's how to get started:
 
