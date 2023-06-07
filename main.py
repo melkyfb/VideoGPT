@@ -39,14 +39,24 @@ def summarize_transcription(api_key, language, audio_or_video_path, transcriptio
             print("Transcription saved to:", transcription_path)
 
             # Summarize the transcription using the OpenAI API
-            summary_response = openai.Completion.create(
-                engine="davinci",
-                prompt=transcription,
-                max_tokens=100
+            summary_response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                temperature=1,
+                messages = [
+                    {
+                        "role": "system",
+                        "content": "You are a professional summarizer and you will summarize transcriptions provided by the user."
+                    }, {
+                        "role": "user",
+                        "content": "Please summarize the following transcription including bullet points for each topic: {}".format(transcription)
+                    }
+                ]
             )
-            summary = summary_response.choices[0].text.strip()
+            summary = summary_response['choices'][0]['message']['content']
 
             if summary:
+                print("Summary completed successfully:")
+                print(summary)
                 # Save the summary to the specified file or in the same folder as the audio/video file
                 if not summary_path:
                     audio_or_video_dir = os.path.dirname(audio_or_video_path)
@@ -59,18 +69,25 @@ def summarize_transcription(api_key, language, audio_or_video_path, transcriptio
                 print("Failed to generate a summary.")
 
             # Ask questions related to the transcription
-            print("Ask ChatGPT (Enter 'I want to quit' to exit):")
             while True:
-                question = input("Ask ChatGPT: ")
+                question = input("Ask ChatGPT (Enter 'I want to quit' to exit): ")
                 if question.lower() == "i want to quit":
                     break
-                answer_response = openai.Answer.create(
-                    model="davinci",
-                    question=question,
-                    documents=[transcription]
+                question_response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    temperature=1,
+                    messages = [
+                        {
+                            "role": "system",
+                            "content": "You will read the following text and respond the questions that the user ask: {}".format(transcription)
+                        }, {
+                            "role": "user",
+                            "content": question
+                        }
+                    ]
                 )
-                answer = answer_response.answers[0]
-                print("Answer:", answer)
+                response_content = question_response['choices'][0]['message']['content']
+                print("Answer:", response_content)
         else:
             print("Failed to transcribe audio.")
 

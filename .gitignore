@@ -16,3 +16,4 @@
 
 #Misc
 venv/**/*
+*.txt
