@@ -1,7 +1,8 @@
 import click
 import openai
 import os
-import moviepy.editor as mp
+import io
+from pydub import AudioSegment
 from datetime import datetime
 
 @click.command()
@@ -12,30 +13,17 @@ from datetime import datetime
 @click.argument("summary_path", type=click.Path(), required=False)
 def summarize_transcription(api_key, language, audio_or_video_path, transcription_path, summary_path):
     try:
-        openai.api_key = api_key
+        openai.api_key = api_key or os.environ["OPENAI_API_KEY"]
 
         if audio_or_video_path.lower().endswith((".mp4", ".avi", ".mov")):
             # Extract audio from video
-            video = mp.VideoFileClip(audio_or_video_path)
-            audio_path = "extracted_audio.wav"
-            video.audio.write_audiofile(audio_path, fps=video.fps)
+            audio_path = "extracted_audio.mp3"
+            audio = AudioSegment.from_file(audio_or_video_path)
+            audio.export(audio_path, format="mp3")
         else:
             audio_path = audio_or_video_path
 
-        with open(audio_path, "rb") as f:
-            audio_data = f.read()
-
-        transcription_params = {
-            "audio": audio_data,
-            "model": "whisper",
-            "max_tokens": 100
-        }
-
-        if language:
-            transcription_params["language"] = language
-
-        response = openai.Transcription.create(**transcription_params)
-        transcription = response.transcription
+        transcription = openai.Audio.transcribe('whisper-1', io.open(audio_path, 'rb')).text
 
         if transcription:
             print("Transcription completed successfully:")

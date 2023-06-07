@@ -1,0 +1,18 @@
+# Video Files
+*.avi
+*.mov
+*.mp4
+*.mpg
+*.mpeg
+*.m4v
+*.flv
+*.f4v
+
+# Audio Files
+*.mp3
+*.m4a
+*.wav
+*.aiff
+
+#Misc
+venv/**/*
